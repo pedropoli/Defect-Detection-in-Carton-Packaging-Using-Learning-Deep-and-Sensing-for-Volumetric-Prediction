@@ -32,15 +32,6 @@ snapshots_processed = set([])
 voxels_combined = None
 all_snapshots = []
 
-# Final Paper Development:
-# Função de voxelização:
-# def pick_points(vis):
-#     pick_event=vis.get_picked_points()
-#     if pick_event is not None:
-#         print("Indices do ponto escolhido:", pick_event)
-#         picked_points = point_cloud.points[pick_event, :]
-#         print("Coordenadas 3D:", picked_points)
-#     return picked_points
 
 def voxelization(point_cloud):
     voxel_grid=open3d.geometry.VoxelGrid.create_from_point_cloud(point_cloud, voxel_size=0.0009)
