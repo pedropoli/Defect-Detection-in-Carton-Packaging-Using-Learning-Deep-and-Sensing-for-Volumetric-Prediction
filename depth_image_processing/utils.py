@@ -84,7 +84,7 @@ def merge_pointclouds(pcd1, pcd2, keep_colors=True, estimate_normals=True):
     if pcd2 is None:
         return pcd1
 
-    pcd = open3d.PointCloud()
+    pcd = open3d.geometry.PointCloud()
     pcd.points = open3d.Vector3dVector(np.vstack((np.asarray(pcd1.points), np.asarray(pcd2.points))))
     if keep_colors:
         pcd.colors = open3d.Vector3dVector(np.vstack((np.asarray(pcd1.colors), np.asarray(pcd2.colors))))
@@ -104,10 +104,10 @@ def depth_image_to_pointcloud(img, filter = [None, None, None], estimate_normals
         return None
     mat = scientific_coordinates_to_standard(mat)
     print_pointcloud_mat_stats(mat)
-    pcd = open3d.PointCloud()
-    pcd.points = open3d.Vector3dVector(mat)
+    pcd = open3d.geometry.PointCloud()
+    pcd.points = open3d.utility.Vector3dVector(mat)
     if estimate_normals:
-        open3d.estimate_normals(pcd, search_param=open3d.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+        open3d.geometry.PointCloud.estimate_normals(pcd, search_param=open3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
     return pcd
 
 # Voxel matrix generation
