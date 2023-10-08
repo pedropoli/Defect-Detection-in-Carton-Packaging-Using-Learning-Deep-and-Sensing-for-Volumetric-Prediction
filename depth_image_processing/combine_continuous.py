@@ -11,8 +11,8 @@ import os, sys
 
 
 # params
-session_name = 'testvoxel2'
-snapshot_number = 59
+session_name = 'frames'
+snapshot_number = 19
 num_sensors = 1
 depth_images_folder = '../data/depth_scans'
 calibration_matrices_folder = '../data/calibration'
@@ -33,45 +33,56 @@ voxels_combined = None
 all_snapshots = []
 
 
-def voxelization(point_cloud):
+# def voxelization(point_cloud):
+#     voxel_size = 0.0009
+#     colors = np.random.rand(1000, 3)
+#     point_cloud.colors = open3d.utility.Vector3dVector(colors)
+#     voxel_grid=open3d.geometry.VoxelGrid.create_from_point_cloud(point_cloud, voxel_size=0.0009)
+#     vis = open3d.visualization.VisualizerWithEditing()
+#     vis.create_window(window_name='Box Visualize', width=800, height=600)
+#     vis.add_geometry(point_cloud)
+#     vis.run()
+#     vis.destroy_window()
+#     print(vis.get_picked_points())
+#     return voxel_grid
 
-    # voxel_grid=open3d.geometry.VoxelGrid.create_from_point_cloud(point_cloud, voxel_size=0.0009)
-    voxel_size = 0.0009
-    # point_cloud=open3d.geometry.point_cloud_crop(point_cloud, min_bound, max_bound)
-    # voxel_grid = open3d.geometry.VoxelGrid.create_from_point_cloud_within_bounds(point_cloud, voxel_size, min_bound, max_bound)
-    voxel_grid=open3d.geometry.VoxelGrid.create_from_point_cloud(point_cloud, voxel_size=0.0009)
-    # vis = open3d.visualization.Visualizer()
-    vis = open3d.visualization.VisualizerWithEditing()
-    # vis = open3d.visualization.draw_geometries_with_editing(voxel_grid,window_name='Box Visualize', width=800, height=600)
-    vis.create_window(window_name='Box Visualize', width=800, height=600)
-    # point_cloud_cropped = crop_pc(point_cloud)
-    coord_frame = open3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0])
-    # vis.add_geometry(point_cloud)
-    # vis.add_geometry(coord_frame)
-    open3d.visualization.draw_geometries([point_cloud, coord_frame])
-    # vis.add_geometry(voxel_grid)
-    vis.run()
-    vis.destroy_window()
-    print(vis.get_picked_points())
-    return voxel_grid
+def align_point_clouds(all_pointclouds):
+    reference_pcd = all_pointclouds[0]
+    # icp = open3d.pipelines.registration.registration_icp()
+    # icp.set_input_target(reference_pcd)
+    aligned_point_clouds = []
+    for point_cloud in all_pointclouds:
+        # icp.set_input_source(point_cloud)
+        # Run the ICP algorithm to align the source point cloud with the reference
+        result = open3d.pipelines.registration.registration_icp(
+            source=point_cloud, target=reference_pcd,
+            max_correspondence_distance=0.01,  # Adjust this value as needed
+            estimation_method=open3d.pipelines.registration.TransformationEstimationPointToPoint(),
+            criteria=open3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=8000)
+        )
+        aligned_point_cloud = point_cloud.transform(result.transformation)
+        aligned_point_clouds.append(aligned_point_cloud)
+        print(len(aligned_point_clouds))
 
-def pick_points(pcd):
-    vis = open3d.visualization.VisualizerWithEditing()
-    vis.create_window()
-    vis.add_geometry(pcd)
-    vis.run()  # user picks points
-    vis.destroy_window()
-    print("")
-    return vis.get_picked_points()
+    return aligned_point_clouds
 
-def crop_pc(point_cloud):
-    min_bound = [-0.079, 0.51, 2.3]
-    max_bound = [0.04, 0.66, 2.1]
-    print("HERE")
-    bbox = open3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
-    cropped_point_cloud = point_cloud.crop(bbox)
-    # cropped_point_cloud = open3d.geometry.crop_point_cloud(point_cloud, min_bound, max_bound)
-    return cropped_point_cloud
+def get_array_of_point_cloud(point_cloud):
+    points = np.asarray(point_cloud.points)
+    print(points)
+    return points
+
+def volume_select(visual, point_cloud):
+    print("Select a volume by holding 'Shift' key and clicking and dragging the mouse.")
+    visual.update_geometry(point_cloud)
+    visual.poll_events()
+    visual.update_renderer()
+
+def mesh_point_cloud(list_of_aligned_pc):
+    merged_mesh = open3d.geometry.TriangleMesh()
+    for aligned_point_cloud in list_of_aligned_pc:
+        mesh = open3d.geometry.TriangleMesh.create_from_point_cloud_poisson(aligned_point_cloud, depth=9)
+        merged_mesh += mesh[0]
+    return merged_mesh
 
 # Main loop:
 while True:
@@ -105,7 +116,11 @@ while True:
             if cmd == 'q':
                 sys.exit()
             if cmd == 'p':
-                rearranged_voxels = voxelization(pointcloud)
+                alignes_points = align_point_clouds(all_snapshots)
+                meshed_pcs = mesh_point_cloud(alignes_points) 
+                open3d.visualization.draw_geometries([meshed_pcs])
+
+                # rearranged_voxels = voxelization(pointcloud)
                     # get_volumetric(rearranged_voxels)
 
         else:

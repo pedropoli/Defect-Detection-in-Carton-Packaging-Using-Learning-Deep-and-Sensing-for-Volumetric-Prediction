@@ -9,9 +9,9 @@ import scipy.ndimage
 
 
 # params
-session_name = 'v1test1'
-snapshot_number = 6
-num_sensors = 2
+session_name = 'frames'
+snapshot_number = 19
+num_sensors = 1
 depth_images_folder = '../data/depth_scans'
 calibration_matrices_folder = '../data/calibration'
 
@@ -44,10 +44,10 @@ for sensor_index in range(num_sensors):
         np.hstack((points, np.ones((points.shape[0], 1)))),
         transformation.transpose()
         )[:, :3]
-    pointcloud.points = open3d.Vector3dVector(points_transformed)
+    pointcloud.points = open3d.utility.Vector3dVector(points_transformed)
 
     scans.append(pointcloud)
     model = utils.merge_pointclouds(model, pointcloud)
 
 #model.paint_uniform_color((0.8, 0.9, 0.7))
-open3d.draw_geometries([model])
+open3d.visualization.draw_geometries([model])

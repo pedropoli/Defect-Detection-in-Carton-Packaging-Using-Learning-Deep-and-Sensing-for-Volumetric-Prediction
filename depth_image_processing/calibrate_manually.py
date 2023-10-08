@@ -9,9 +9,9 @@ import transform_utils
 
 
 # params
-session_name = 'v1test1'
-snapshot_number = 6
-num_sensors = 2
+session_name = 'frames'
+snapshot_number = 19
+num_sensors = 1
 depth_images_folder = '../data/depth_scans'
 calibration_matrices_folder = '../data/calibration'
 
@@ -82,4 +82,4 @@ print('u: save transformations')
 for key, value in transform_utils.get_transform_names().items():
     print('{}: {}'.format(key.lower(), value[:-7].replace('_', ' ')))
 
-open3d.draw_geometries_with_key_callbacks(pointclouds, key_to_callback)
+open3d.visualization.draw_geometries_with_key_callbacks(pointclouds, key_to_callback)
