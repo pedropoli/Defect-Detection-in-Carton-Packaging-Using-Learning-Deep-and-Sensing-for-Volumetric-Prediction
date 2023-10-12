@@ -11,8 +11,8 @@ import os, sys
 
 
 # params
-session_name = 'frames'
-snapshot_number = 19
+session_name = 'meshtest'
+snapshot_number = 31
 num_sensors = 1
 depth_images_folder = '../data/depth_scans'
 calibration_matrices_folder = '../data/calibration'
@@ -32,31 +32,28 @@ snapshots_processed = set([])
 voxels_combined = None
 all_snapshots = []
 
-
-# def voxelization(point_cloud):
-#     voxel_size = 0.0009
-#     colors = np.random.rand(1000, 3)
-#     point_cloud.colors = open3d.utility.Vector3dVector(colors)
-#     voxel_grid=open3d.geometry.VoxelGrid.create_from_point_cloud(point_cloud, voxel_size=0.0009)
-#     vis = open3d.visualization.VisualizerWithEditing()
-#     vis.create_window(window_name='Box Visualize', width=800, height=600)
-#     vis.add_geometry(point_cloud)
-#     vis.run()
-#     vis.destroy_window()
-#     print(vis.get_picked_points())
-#     return voxel_grid
+def crop_point_clouds(list_of_point_clouds):
+    # especificar coordenadas para a regiao de interesse:
+    min_bound = []
+    max_bound = []
+    cropped_point_clouds = []
+    for pc in list_of_point_clouds:
+        cropped_pc = pc.crop([min_bound, max_bound])
+        cropped_point_clouds.append(cropped_pc)
+    return cropped_point_clouds
 
 def align_point_clouds(all_pointclouds):
+    # especifica um point cloud de referencia:
     reference_pcd = all_pointclouds[0]
     # icp = open3d.pipelines.registration.registration_icp()
     # icp.set_input_target(reference_pcd)
     aligned_point_clouds = []
     for point_cloud in all_pointclouds:
         # icp.set_input_source(point_cloud)
-        # Run the ICP algorithm to align the source point cloud with the reference
+        # Aplica o algoritmo ICP para alinhar o point cloud fonte com a referencia
         result = open3d.pipelines.registration.registration_icp(
             source=point_cloud, target=reference_pcd,
-            max_correspondence_distance=0.01,  # Adjust this value as needed
+            max_correspondence_distance=0.01,  # ajustar ao valor de menor erro
             estimation_method=open3d.pipelines.registration.TransformationEstimationPointToPoint(),
             criteria=open3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=8000)
         )

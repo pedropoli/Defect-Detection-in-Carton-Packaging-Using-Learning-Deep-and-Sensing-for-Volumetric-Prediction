@@ -9,8 +9,8 @@ import scipy.ndimage
 
 
 # params
-session_name = 'frames'
-snapshot_number = 19
+session_name = 'meshtest'
+snapshot_number = 31
 num_sensors = 1
 depth_images_folder = '../data/depth_scans'
 calibration_matrices_folder = '../data/calibration'
