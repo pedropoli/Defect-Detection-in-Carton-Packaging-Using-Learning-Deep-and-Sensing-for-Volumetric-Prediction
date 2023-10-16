@@ -32,6 +32,37 @@ snapshots_processed = set([])
 voxels_combined = None
 all_snapshots = []
 
+def demo_crop_geometry(pointcloud):
+    vis = open3d.visualization.VisualizerWithEditing()
+    vis.create_window()
+    print("Demo for manual geometry cropping")
+    print(
+        "1) Press 'Y' twice to align geometry with negative direction of y-axis"
+    )
+    print("2) Press 'K' to lock screen and to switch to selection mode")
+    print("3) Drag for rectangle selection,")
+    print("   or use ctrl + left click for polygon selection")
+    print("4) Press 'C' to get a selected geometry and to save it")
+    print("5) Press 'F' to switch to freeview mode")
+    vis.add_geometry(pointcloud)
+    vis.run()
+    cropped_point_cloud = vis.get_cropped_geometry()
+    print(type(cropped_point_cloud))
+    vis.destroy_window()
+    return cropped_point_cloud
+
+def select_polygon(list_of_pc):
+    vis = open3d.visualization.VisualizerWithEditing()
+    for pcd in list_of_pc:
+        vis.create_window()
+        vis.add_geometry(pcd)
+        vis.run()  # user picks points
+        vis.destroy_window()
+        if cmd == 'e':
+            vis.destroy_window()
+            break
+    return None
+
 def crop_point_clouds(list_of_point_clouds):
     # especificar coordenadas para a regiao de interesse:
     min_bound = []
@@ -53,9 +84,9 @@ def align_point_clouds(all_pointclouds):
         # Aplica o algoritmo ICP para alinhar o point cloud fonte com a referencia
         result = open3d.pipelines.registration.registration_icp(
             source=point_cloud, target=reference_pcd,
-            max_correspondence_distance=0.01,  # ajustar ao valor de menor erro
+            max_correspondence_distance=0.005,  # ajustar ao valor de menor erro
             estimation_method=open3d.pipelines.registration.TransformationEstimationPointToPoint(),
-            criteria=open3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=8000)
+            criteria=open3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=500)
         )
         aligned_point_cloud = point_cloud.transform(result.transformation)
         aligned_point_clouds.append(aligned_point_cloud)
@@ -113,10 +144,23 @@ while True:
             if cmd == 'q':
                 sys.exit()
             if cmd == 'p':
-                alignes_points = align_point_clouds(all_snapshots)
-                meshed_pcs = mesh_point_cloud(alignes_points) 
-                open3d.visualization.draw_geometries([meshed_pcs])
+                list_cropped_pc = []
+                for cloud in all_snapshots:
+                    cropped_pc = demo_crop_geometry(cloud)
+                    list_cropped_pc.append(cropped_pc)
+                    print(len(list_cropped_pc))
+                alignes_crop_pc = align_point_clouds(list_cropped_pc)
+                vis = open3d.visualization.Visualizer()
+                vis.create_window()
+                for cloud in alignes_crop_pc:
+                    vis.add_geometry(cloud)
+                vis.run()
+                vis.destroy_window()
 
+                # vis.add_geometry(all_snapshots)
+
+                # meshed_pcs = mesh_point_cloud(alignes_points) 
+                # open3d.visualization.draw_geometries([meshed_pcs])
                 # rearranged_voxels = voxelization(pointcloud)
                     # get_volumetric(rearranged_voxels)
 
@@ -133,7 +177,7 @@ while True:
         print('Opening image {}...'.format(depth_image_filename))
         depth_image = np.load(depth_image_filename)
         raw_pointcloud = depth_image     # salva pointcloud sem alterações
-        pointcloud = utils.depth_image_to_pointcloud(depth_image, filter=filter)    #
+        pointcloud = utils.depth_image_to_pointcloud(depth_image, filter=filter) 
         if pointcloud is None:
             continue
         pointcloud.paint_uniform_color(utils.item_in_range_color(process_snapshot, 10, True))
@@ -147,12 +191,15 @@ while True:
 
     # Got a new snapshot pointcloud.
     all_snapshots.append(snapshot_pointcloud)
-    # open3d.visualization.draw_geometries(all_snapshots)
+    list_cropped_pc = []
 
 
-    # Voxelization Function: align poin clouds in one 3D image
-
-
+print(len(all_snapshots))
+    # for cloud in all_snapshots:
+    #     cropped_pc = demo_crop_geometry(cloud)
+    #     list_cropped_pc.append(cropped_pc)
+    #     print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+    #     print(len(all_snapshots))
 
 # for pointclouds in all_snapshots:
 #     rearranged_pc = voxelization(pointclouds, 19)
