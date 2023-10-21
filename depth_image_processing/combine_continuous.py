@@ -11,8 +11,9 @@ import os, sys
 
 
 # params
-session_name = 'meshtest'
-snapshot_number = 31
+session_name = 'turnobj3'
+snapshot_number = 18
+
 num_sensors = 1
 depth_images_folder = '../data/depth_scans'
 calibration_matrices_folder = '../data/calibration'
@@ -31,6 +32,85 @@ transformations = np.load(calibration_matrices_filename)
 snapshots_processed = set([])
 voxels_combined = None
 all_snapshots = []
+
+def merge_point_clouds(list_of_pcd):
+    merged_pcd = open3d.geometry.PointCloud()
+    for i in range(len(list_of_pcd)):
+        merged_pcd+=list_of_pcd[i]
+    return merged_pcd
+
+def convex_hull(pcd):
+    hull, _ = pcd.compute_convex_hull()
+    hull_ls = open3d.geometry.LineSet.create_from_triangle_mesh(hull)
+    hull_ls.paint_uniform_color((1, 0, 0))
+    return hull_ls
+
+def downsample_point_clouds(list_of_pcd, voxel_size=0.02):
+    point_cloud_ds = []
+    for point in list_of_pcd:
+        pcd_down = point.voxel_down_sample(voxel_size=voxel_size)
+        point_cloud_ds.append(pcd_down)
+    return point_cloud_ds
+
+def get_voxel_size(point_cloud):
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_point_cloud(point_cloud, voxel_size=0.05)
+    voxel_size = voxel_grid.voxel_size
+    return voxel_size
+
+def optimizing_pose_graph(max_correspondence_distance_fine, pose_graph):
+    option = open3d.pipelines.registration.GlobalOptimizationOption(
+    max_correspondence_distance=max_correspondence_distance_fine,
+    edge_prune_threshold=0.25,
+    reference_node=0)
+    with open3d.utility.VerbosityContextManager(open3d.utility.VerbosityLevel.Debug) as cm:
+        open3d.pipelines.registration.global_optimization(
+                                            pose_graph,
+                                            open3d.pipelines.registration.GlobalOptimizationLevenbergMarquardt(),
+                                            open3d.pipelines.registration.GlobalOptimizationConvergenceCriteria(),
+                                            option)
+
+def pairwise_registration(source, target, max_correspondence_distance_coarse, max_correspondence_distance_fine):
+    print("Apply point-to-plane ICP")
+    icp_coarse = open3d.pipelines.registration.registration_icp(
+        source, target, max_correspondence_distance_coarse, np.identity(4),
+        open3d.pipelines.registration.TransformationEstimationPointToPlane())
+    icp_fine = open3d.pipelines.registration.registration_icp(
+        source, target, max_correspondence_distance_fine,
+        icp_coarse.transformation,
+        open3d.pipelines.registration.TransformationEstimationPointToPlane())
+    transformation_icp = icp_fine.transformation
+    information_icp = open3d.pipelines.registration.get_information_matrix_from_point_clouds(
+        source, target, max_correspondence_distance_fine,
+        icp_fine.transformation)
+    return transformation_icp, information_icp
+
+def full_registration(pcds, max_correspondence_distance_coarse,max_correspondence_distance_fine):
+    pose_graph = open3d.pipelines.registration.PoseGraph()
+    odometry = np.identity(4)
+    pose_graph.nodes.append(open3d.pipelines.registration.PoseGraphNode(odometry))
+    n_pcds = len(pcds)
+    for source_id in range(n_pcds):
+        for target_id in range(source_id + 1, n_pcds):
+            transformation_icp, information_icp = pairwise_registration(pcds[source_id], pcds[target_id], max_correspondence_distance_coarse, max_correspondence_distance_fine)
+            print("Build o3d.pipelines.registration.PoseGraph")
+            if target_id == source_id + 1:  # odometry case
+                odometry = np.dot(transformation_icp, odometry)
+                pose_graph.nodes.append(open3d.pipelines.registration.PoseGraphNode(np.linalg.inv(odometry)))
+                pose_graph.edges.append(open3d.pipelines.registration.PoseGraphEdge(source_id,target_id,transformation_icp,information_icp,
+                                                             uncertain=False))
+                
+            else:  # loop closure case
+                pose_graph.edges.append(
+                    open3d.pipelines.registration.PoseGraphEdge(source_id,
+                                                             target_id,
+                                                             transformation_icp,
+                                                             information_icp,
+                                                             uncertain=True))
+    return pose_graph
+
+# def surface_recontruction(list_of_pc):
+#     combined_pc = open3d.geometry.PointCloud.concat()
+#     return final_point_clouds
 
 def demo_crop_geometry(pointcloud):
     vis = open3d.visualization.VisualizerWithEditing()
@@ -79,16 +159,16 @@ def align_point_clouds(all_pointclouds):
     # icp = open3d.pipelines.registration.registration_icp()
     # icp.set_input_target(reference_pcd)
     aligned_point_clouds = []
-    for point_cloud in all_pointclouds:
+    for i in range(1, len(all_pointclouds)):
         # icp.set_input_source(point_cloud)
         # Aplica o algoritmo ICP para alinhar o point cloud fonte com a referencia
         result = open3d.pipelines.registration.registration_icp(
-            source=point_cloud, target=reference_pcd,
-            max_correspondence_distance=0.005,  # ajustar ao valor de menor erro
+            source=all_pointclouds[i], target=all_pointclouds[i - 1],
+            max_correspondence_distance=0.05,  # ajustar ao valor de menor erro
             estimation_method=open3d.pipelines.registration.TransformationEstimationPointToPoint(),
             criteria=open3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=500)
         )
-        aligned_point_cloud = point_cloud.transform(result.transformation)
+        aligned_point_cloud = all_pointclouds[i].transform(result.transformation)
         aligned_point_clouds.append(aligned_point_cloud)
         print(len(aligned_point_clouds))
 
@@ -145,21 +225,36 @@ while True:
                 sys.exit()
             if cmd == 'p':
                 list_cropped_pc = []
+                voxel_size = 0.02
+                max_correspondence_distance_coarse = voxel_size * 15
+                max_correspondence_distance_fine = voxel_size * 1.5
                 for cloud in all_snapshots:
                     cropped_pc = demo_crop_geometry(cloud)
                     list_cropped_pc.append(cropped_pc)
-                    print(len(list_cropped_pc))
-                alignes_crop_pc = align_point_clouds(list_cropped_pc)
-                vis = open3d.visualization.Visualizer()
-                vis.create_window()
-                for cloud in alignes_crop_pc:
-                    vis.add_geometry(cloud)
-                vis.run()
-                vis.destroy_window()
 
+                cropped_pc_ds = downsample_point_clouds(list_cropped_pc)
+                merged_pcd = merge_point_clouds(cropped_pc_ds)    
+                pcd_hull_ls = convex_hull(merged_pcd)
+                open3d.visualization.draw_geometries([merged_pcd, pcd_hull_ls])
+
+
+                    # for point_id in range(len(cropped_pc_ds)):
+                    #     print(pose_graph.nodes[point_id].pose)
+                    #     cropped_pc_ds[point_id].transform(pose_graph.nodes[point_id].pose)
+                    #     open3d.visualization.draw_geometries(cropped_pc_ds)
+
+                    
+                # alignes_crop_pc = align_point_clouds(list_cropped_pc)
+                # vis = open3d.visualization.Visualizer()
+                # vis.create_window()
+                # for cloud in alignes_crop_pc:
+                #     vis.add_geometry(cloud)
+                # vis.run()
+                # vis.destroy_window()
                 # vis.add_geometry(all_snapshots)
 
-                # meshed_pcs = mesh_point_cloud(alignes_points) 
+
+                # meshed_pcs = mesh_point_cloud(alignes_crop_pc) 
                 # open3d.visualization.draw_geometries([meshed_pcs])
                 # rearranged_voxels = voxelization(pointcloud)
                     # get_volumetric(rearranged_voxels)
@@ -198,7 +293,6 @@ print(len(all_snapshots))
     # for cloud in all_snapshots:
     #     cropped_pc = demo_crop_geometry(cloud)
     #     list_cropped_pc.append(cropped_pc)
-    #     print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
     #     print(len(all_snapshots))
 
 # for pointclouds in all_snapshots:
