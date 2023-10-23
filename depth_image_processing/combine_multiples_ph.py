@@ -8,11 +8,12 @@ import open3d
 import functools
 import colorsys
 import os, sys
+from scipy.spatial import Delaunay
 
 
 # params
-session_name = 'shit'
-snapshot_number = 14
+session_name = 'turnobj3'
+snapshot_number = 18
 
 num_sensors = 1
 depth_images_folder = '../data/depth_scans'
@@ -36,6 +37,15 @@ all_snapshots = []
 # def demo_manual_registration():
 #     return 
 
+def tetrahedron_volume(a, b, c, d):
+    return np.abs(np.einsum('ij,ij->i', a-d, np.cross(b-d, c-d))) / 6
+
+def get_volum(ch):
+    simplices = np.column_stack((np.repeat(ch.vertices[0], ch.nsimplex),ch.simplices))
+    tets = ch.points[simplices]
+    volum = np.sum(tetrahedron_volume(tets[:, 0], tets[:, 1],tets[:, 2], tets[:, 3]))
+    return volum
+
 def merge_point_clouds(list_of_pcd):
     merged_pcd = open3d.geometry.PointCloud()
     for i in range(len(list_of_pcd)):
@@ -46,7 +56,7 @@ def convex_hull(pcd):
     hull, _ = pcd.compute_convex_hull()
     hull_ls = open3d.geometry.LineSet.create_from_triangle_mesh(hull)
     hull_ls.paint_uniform_color((1, 0, 0))
-    return hull_ls
+    return hull_ls, hull
 
 def downsample_point_clouds(list_of_pcd, voxel_size=0.02):
     point_cloud_ds = []
@@ -159,12 +169,8 @@ def crop_point_clouds(list_of_point_clouds):
 def align_point_clouds(all_pointclouds):
     # especifica um point cloud de referencia:
     reference_pcd = all_pointclouds[0]
-    # icp = open3d.pipelines.registration.registration_icp()
-    # icp.set_input_target(reference_pcd)
     aligned_point_clouds = []
     for i in range(1, len(all_pointclouds)):
-        # icp.set_input_source(point_cloud)
-        # Aplica o algoritmo ICP para alinhar o point cloud fonte com a referencia
         result = open3d.pipelines.registration.registration_icp(
             source=all_pointclouds[i], target=all_pointclouds[i - 1],
             max_correspondence_distance=0.05,  # ajustar ao valor de menor erro
@@ -217,9 +223,7 @@ while True:
                     # snapshot is not yet processed
                     process_snapshot = snapshot_index
                     break
-        # print(process_snapshot, snapshot_number)
-        # if process_snapshot == snapshot_number:
-        #     done = True
+
         if process_snapshot == -1:
             print('no new snapshots ready, waiting...')
             time.sleep(1)
@@ -236,31 +240,25 @@ while True:
                     list_cropped_pc.append(cropped_pc)
 
                 cropped_pc_ds = downsample_point_clouds(list_cropped_pc)
-                merged_pcd = merge_point_clouds(cropped_pc_ds)    
-                pcd_hull_ls = convex_hull(merged_pcd)
-                # open3d.visualization.draw_geometries([merged_pcd, pcd_hull_ls])
+                alignes_ds_pcd = align_point_clouds(cropped_pc_ds)
+                merged_pcd = merge_point_clouds(alignes_ds_pcd)    
+                pcd_hull_ls, pcd_hull = convex_hull(merged_pcd)
+                # print(type(pcd_hull))
+                # print(type(pcd_hull_ls))
+                # volume_pcd = get_volum(pcd_hull) 
+                # print("Volume do objeto:", volume_pcd)
+                open3d.visualization.draw_geometries([merged_pcd, pcd_hull_ls])
+
+                # alignes_crop_pc = align_point_clouds(list_cropped_pc)
+                # vis = open3d.visualization.Visualizer()
+                # vis.create_window()
+                # for cloud in alignes_crop_pc:
+                #     vis.add_geometry(cloud)
+                # vis.run()
+                # vis.destroy_window()
+                # vis.add_geometry(all_snapshots)
 
 
-                    # for point_id in range(len(cropped_pc_ds)):
-                    #     print(pose_graph.nodes[point_id].pose)
-                    #     cropped_pc_ds[point_id].transform(pose_graph.nodes[point_id].pose)
-                    #     open3d.visualization.draw_geometries(cropped_pc_ds)
-
-                    
-                alignes_crop_pc = align_point_clouds(list_cropped_pc)
-                vis = open3d.visualization.Visualizer()
-                vis.create_window()
-                for cloud in alignes_crop_pc:
-                    vis.add_geometry(cloud)
-                vis.run()
-                vis.destroy_window()
-                vis.add_geometry(all_snapshots)
-
-
-                # meshed_pcs = mesh_point_cloud(alignes_crop_pc) 
-                # open3d.visualization.draw_geometries([meshed_pcs])
-                # rearranged_voxels = voxelization(pointcloud)
-                    # get_volumetric(rearranged_voxels)
 
         else:
             print('new snapshot ready: {}'.format(process_snapshot))
