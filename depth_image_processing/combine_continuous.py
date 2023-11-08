@@ -11,8 +11,8 @@ import os, sys
 
 
 # params
-session_name = 'shit'
-snapshot_number = 14
+session_name = 'type1_1m'
+snapshot_number = 25
 
 num_sensors = 1
 depth_images_folder = '../data/depth_scans'
@@ -48,7 +48,7 @@ def convex_hull(pcd):
     hull_ls.paint_uniform_color((1, 0, 0))
     return hull_ls
 
-def downsample_point_clouds(list_of_pcd, voxel_size=0.02):
+def downsample_point_clouds(list_of_pcd, voxel_size=0.05):
     point_cloud_ds = []
     for point in list_of_pcd:
         pcd_down = point.voxel_down_sample(voxel_size=voxel_size)
@@ -130,7 +130,7 @@ def demo_crop_geometry(pointcloud):
     vis.add_geometry(pointcloud)
     vis.run()
     cropped_point_cloud = vis.get_cropped_geometry()
-    print(type(cropped_point_cloud))
+    # print(type(cropped_point_cloud))
     vis.destroy_window()
     return cropped_point_cloud
 
@@ -179,7 +179,7 @@ def align_point_clouds(all_pointclouds):
 
 def get_array_of_point_cloud(point_cloud):
     points = np.asarray(point_cloud.points)
-    print(points)
+    # print(points)
     return points
 
 def volume_select(visual, point_cloud):
@@ -228,39 +228,17 @@ while True:
                 sys.exit()
             if cmd == 'p':
                 list_cropped_pc = []
-                voxel_size = 0.02
+                voxel_size = 0.05
                 max_correspondence_distance_coarse = voxel_size * 15
                 max_correspondence_distance_fine = voxel_size * 1.5
                 for cloud in all_snapshots:
                     cropped_pc = demo_crop_geometry(cloud)
                     list_cropped_pc.append(cropped_pc)
+                list_cropped_pc = downsample_point_clouds(list_cropped_pc)
+                alignes_points = align_point_clouds(list_cropped_pc)
+                meshed_pdc = mesh_point_cloud(alignes_points) 
+                open3d.visualization.draw_geometries([meshed_pdc])
 
-                cropped_pc_ds = downsample_point_clouds(list_cropped_pc)
-                merged_pcd = merge_point_clouds(cropped_pc_ds)    
-                pcd_hull_ls = convex_hull(merged_pcd)
-                # open3d.visualization.draw_geometries([merged_pcd, pcd_hull_ls])
-
-
-                    # for point_id in range(len(cropped_pc_ds)):
-                    #     print(pose_graph.nodes[point_id].pose)
-                    #     cropped_pc_ds[point_id].transform(pose_graph.nodes[point_id].pose)
-                    #     open3d.visualization.draw_geometries(cropped_pc_ds)
-
-                    
-                alignes_crop_pc = align_point_clouds(list_cropped_pc)
-                vis = open3d.visualization.Visualizer()
-                vis.create_window()
-                for cloud in alignes_crop_pc:
-                    vis.add_geometry(cloud)
-                vis.run()
-                vis.destroy_window()
-                vis.add_geometry(all_snapshots)
-
-
-                # meshed_pcs = mesh_point_cloud(alignes_crop_pc) 
-                # open3d.visualization.draw_geometries([meshed_pcs])
-                # rearranged_voxels = voxelization(pointcloud)
-                    # get_volumetric(rearranged_voxels)
 
         else:
             print('new snapshot ready: {}'.format(process_snapshot))

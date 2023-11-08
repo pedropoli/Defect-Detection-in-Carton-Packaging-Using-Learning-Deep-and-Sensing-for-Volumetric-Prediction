@@ -9,8 +9,8 @@ import transform_utils
 
 
 # params
-session_name = 'turnobj3'
-snapshot_number = 18
+session_name = 'type1_175cm'
+snapshot_number = 25
 num_sensors = 1
 depth_images_folder = '../data/depth_scans'
 calibration_matrices_folder = '../data/calibration'
