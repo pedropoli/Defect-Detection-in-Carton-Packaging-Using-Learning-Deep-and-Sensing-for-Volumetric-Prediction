@@ -9,8 +9,8 @@ import scipy.ndimage
 
 
 # params
-session_name = 'type1_175cm'
-snapshot_number = 25
+session_name = 'type2_scans_20'
+snapshot_number = 20
 num_sensors = 1
 depth_images_folder = '../data/depth_scans'
 calibration_matrices_folder = '../data/calibration'

@@ -34,11 +34,7 @@ snapshots_processed = set([])
 voxels_combined = None
 all_snapshots = []
 
-# def demo_manual_registration():
-#     return 
 
-# def tetrahedron_volume(a, b, c, d):
-#     return np.abs(np.einsum('ij,ij->i', a-d, np.cross(b-d, c-d))) / 6
 
 def save_triangle_mesh(mesh):
     file_path = "C:/Users/User/Desktop/kinect_3d_dev-master/saved_meshes/" + session_name + ".ply"
@@ -127,22 +123,10 @@ def full_registration(pcds, max_correspondence_distance_coarse,max_correspondenc
                                                              uncertain=True))
     return pose_graph
 
-# def surface_recontruction(list_of_pc):
-#     combined_pc = open3d.geometry.PointCloud.concat()
-#     return final_point_clouds
 
 def demo_crop_geometry(pointcloud):
     vis = open3d.visualization.VisualizerWithEditing()
     vis.create_window()
-    print("Demo for manual geometry cropping")
-    print(
-        "1) Press 'Y' twice to align geometry with negative direction of y-axis"
-    )
-    print("2) Press 'K' to lock screen and to switch to selection mode")
-    print("3) Drag for rectangle selection,")
-    print("   or use ctrl + left click for polygon selection")
-    print("4) Press 'C' to get a selected geometry and to save it")
-    print("5) Press 'F' to switch to freeview mode")
     vis.add_geometry(pointcloud)
     vis.run()
     cropped_point_cloud = vis.get_cropped_geometry()
@@ -179,7 +163,7 @@ def align_point_clouds(all_pointclouds):
     for i in range(1, len(all_pointclouds)):
         result = open3d.pipelines.registration.registration_icp(
             source=all_pointclouds[i], target=all_pointclouds[i - 1],
-            max_correspondence_distance=0.05,  # ajustar ao valor de menor erro
+            max_correspondence_distance=0.09,  # ajustar ao valor de menor erro
             estimation_method=open3d.pipelines.registration.TransformationEstimationPointToPoint(),
             criteria=open3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=500)
         )
@@ -258,16 +242,6 @@ while True:
                 open3d.visualization.draw_geometries([merged_pcd, pcd_hull_ls])
                 save_triangle_mesh(pcd_hull)
                 
-                # alignes_crop_pc = align_point_clouds(list_cropped_pc)
-                # vis = open3d.visualization.Visualizer()
-                # vis.create_window()
-                # for cloud in alignes_crop_pc:
-                #     vis.add_geometry(cloud)
-                # vis.run()
-                # vis.destroy_window()
-                # vis.add_geometry(all_snapshots)
-
-
 
         else:
             print('new snapshot ready: {}'.format(process_snapshot))
@@ -300,11 +274,4 @@ while True:
 
 
 print(len(all_snapshots))
-    # for cloud in all_snapshots:
-    #     cropped_pc = demo_crop_geometry(cloud)
-    #     list_cropped_pc.append(cropped_pc)
-    #     print(len(all_snapshots))
 
-# for pointclouds in all_snapshots:
-#     rearranged_pc = voxelization(pointclouds, 19)
-#     open3d.draw_geometries(rearranged_pc)
